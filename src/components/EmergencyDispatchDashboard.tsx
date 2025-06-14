@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Phone, MapPin, Clock, Users, AlertTriangle, CheckCircle, Truck, PhoneCall, Radio } from 'lucide-react';
+import { Shield, Phone, MapPin, Clock, Users, AlertTriangle, CheckCircle, Truck, PhoneCall, Radio, Globe } from 'lucide-react';
 
 interface EmergencyDispatchDashboardProps {
   emergencyData: any;
@@ -8,7 +8,7 @@ interface EmergencyDispatchDashboardProps {
 export default function EmergencyDispatchDashboard({ emergencyData }: EmergencyDispatchDashboardProps) {
   const [dispatchStatus, setDispatchStatus] = useState<'processing' | 'dispatched' | 'en-route' | 'arrived'>('processing');
   const [responseTime, setResponseTime] = useState(0);
-  const [estimatedArrival, setEstimatedArrival] = useState(emergencyData.estimatedArrival || 8);
+  const [estimatedArrival, setEstimatedArrival] = useState(emergencyData.estimatedArrival || 12);
   const [activeServices, setActiveServices] = useState<string[]>([]);
 
   useEffect(() => {
@@ -23,8 +23,8 @@ export default function EmergencyDispatchDashboard({ emergencyData }: EmergencyD
         setActiveServices(getEmergencyServices());
       }, 2000);
       
-      const timer2 = setTimeout(() => setDispatchStatus('en-route'), 5000);
-      const timer3 = setTimeout(() => setDispatchStatus('arrived'), 30000);
+      const timer2 = setTimeout(() => setDispatchStatus('en-route'), 8000);
+      const timer3 = setTimeout(() => setDispatchStatus('arrived'), 45000);
 
       return () => {
         clearTimeout(timer1);
@@ -79,20 +79,23 @@ export default function EmergencyDispatchDashboard({ emergencyData }: EmergencyD
 
   const getEmergencyServices = () => {
     const services = [];
-    if (emergencyData.emergencyType === 'medical') services.push('Emergency Medical Services', 'Ambulance');
-    if (emergencyData.emergencyType === 'fire') services.push('Fire Department', 'Hazmat Team');
-    if (emergencyData.emergencyType === 'crime') services.push('Police Department', 'K-9 Unit');
+    if (emergencyData.emergencyType === 'medical') services.push('Emergency Medical Services', 'Ambulance (102)');
+    if (emergencyData.emergencyType === 'fire') services.push('Fire Department (101)', 'Hazmat Team');
+    if (emergencyData.emergencyType === 'crime') services.push('Police Department (100)', 'Local Police Station');
     if (emergencyData.casualties > 0) services.push('Paramedic Team');
-    if (emergencyData.urgencyLevel >= 4) services.push('Emergency Services (911)');
+    if (emergencyData.urgencyLevel >= 4) services.push('Emergency Services (112)');
     return services.length > 0 ? services : ['Emergency Response Team'];
   };
 
   const getEmergencyNumbers = () => {
     const numbers = [];
-    if (emergencyData.urgencyLevel >= 4) numbers.push({ service: '911 Emergency', number: '911', status: 'contacted' });
-    if (emergencyData.emergencyType === 'medical') numbers.push({ service: 'Local Hospital', number: '(555) 123-4567', status: 'notified' });
-    if (emergencyData.emergencyType === 'fire') numbers.push({ service: 'Fire Department', number: '(555) 234-5678', status: 'dispatched' });
-    if (emergencyData.emergencyType === 'crime') numbers.push({ service: 'Police Department', number: '(555) 345-6789', status: 'en-route' });
+    numbers.push({ service: 'Emergency Contact (Test)', number: '+91 9714766855', status: 'contacted', priority: 'HIGH' });
+    
+    if (emergencyData.urgencyLevel >= 4) numbers.push({ service: 'Emergency Services (112)', number: '112', status: 'notified', priority: 'CRITICAL' });
+    if (emergencyData.emergencyType === 'medical') numbers.push({ service: 'Ambulance Services', number: '102', status: 'dispatched', priority: 'HIGH' });
+    if (emergencyData.emergencyType === 'fire') numbers.push({ service: 'Fire Department', number: '101', status: 'en-route', priority: 'HIGH' });
+    if (emergencyData.emergencyType === 'crime') numbers.push({ service: 'Police Department', number: '100', status: 'notified', priority: 'MEDIUM' });
+    
     return numbers;
   };
 
@@ -104,7 +107,7 @@ export default function EmergencyDispatchDashboard({ emergencyData }: EmergencyD
           <Shield className="w-12 h-12 text-blue-600 mr-3" />
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Emergency Dispatch Center</h1>
-            <p className="text-lg text-gray-600">Real-time emergency response coordination</p>
+            <p className="text-lg text-gray-600">India Emergency Response Coordination</p>
           </div>
         </div>
       </div>
@@ -125,18 +128,24 @@ export default function EmergencyDispatchDashboard({ emergencyData }: EmergencyD
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
         <h3 className="text-lg font-semibold text-blue-900 mb-4 flex items-center">
           <PhoneCall className="w-5 h-5 mr-2" />
-          Emergency Services Contacted
+          Emergency Services Contacted (India)
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {getEmergencyNumbers().map((contact, index) => (
             <div key={index} className="bg-white p-4 rounded-lg border flex items-center justify-between">
               <div className="flex items-center space-x-3">
-                <div className="bg-blue-100 p-2 rounded-full">
-                  <Phone className="w-4 h-4 text-blue-600" />
+                <div className={`p-2 rounded-full ${
+                  contact.priority === 'CRITICAL' ? 'bg-red-100' :
+                  contact.priority === 'HIGH' ? 'bg-orange-100' : 'bg-blue-100'
+                }`}>
+                  <Phone className={`w-4 h-4 ${
+                    contact.priority === 'CRITICAL' ? 'text-red-600' :
+                    contact.priority === 'HIGH' ? 'text-orange-600' : 'text-blue-600'
+                  }`} />
                 </div>
                 <div>
                   <p className="font-medium text-gray-900">{contact.service}</p>
-                  <p className="text-sm text-gray-600">{contact.number}</p>
+                  <p className="text-sm text-gray-600 font-mono">{contact.number}</p>
                 </div>
               </div>
               <div className="flex items-center space-x-2">
@@ -152,6 +161,15 @@ export default function EmergencyDispatchDashboard({ emergencyData }: EmergencyD
               </div>
             </div>
           ))}
+        </div>
+        
+        <div className="mt-4 p-4 bg-green-100 rounded-lg">
+          <div className="flex items-center">
+            <Globe className="w-5 h-5 text-green-600 mr-2" />
+            <p className="text-sm text-green-800 font-medium">
+              ✅ Primary emergency contact (+91 9714766855) has been called via Vapi voice system
+            </p>
+          </div>
         </div>
       </div>
 
@@ -222,7 +240,7 @@ export default function EmergencyDispatchDashboard({ emergencyData }: EmergencyD
       <div className="bg-green-50 border border-green-200 rounded-xl p-6">
         <h3 className="text-lg font-semibold text-green-900 mb-4 flex items-center">
           <Radio className="w-5 h-5 mr-2" />
-          Active Emergency Response Units
+          Active Emergency Response Units (India)
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {(activeServices.length > 0 ? activeServices : getEmergencyServices()).map((service, index) => (
@@ -290,18 +308,41 @@ export default function EmergencyDispatchDashboard({ emergencyData }: EmergencyD
           
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <Shield className="w-5 h-5 text-green-600" />
-              <span className="text-green-800">Emergency services contacted & dispatched</span>
+              <PhoneCall className="w-5 h-5 text-green-600" />
+              <span className="text-green-800">Emergency services contacted at +91 9714766855</span>
             </div>
             <CheckCircle className="w-5 h-5 text-green-600" />
           </div>
 
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <PhoneCall className="w-5 h-5 text-green-600" />
+              <Shield className="w-5 h-5 text-green-600" />
               <span className="text-green-800">Direct line to emergency operators maintained</span>
             </div>
             <CheckCircle className="w-5 h-5 text-green-600" />
+          </div>
+        </div>
+      </div>
+
+      {/* India Emergency Services Information */}
+      <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+        <h4 className="font-semibold text-orange-900 mb-2">India Emergency Services</h4>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-orange-800">
+          <div className="text-center">
+            <p className="font-bold">112</p>
+            <p>Emergency Services</p>
+          </div>
+          <div className="text-center">
+            <p className="font-bold">100</p>
+            <p>Police</p>
+          </div>
+          <div className="text-center">
+            <p className="font-bold">101</p>
+            <p>Fire Department</p>
+          </div>
+          <div className="text-center">
+            <p className="font-bold">102</p>
+            <p>Ambulance</p>
           </div>
         </div>
       </div>

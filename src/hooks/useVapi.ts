@@ -55,12 +55,12 @@ export const useVapi = () => {
         messages: [
           {
             role: 'system',
-            content: `You are RescueLink's AI Emergency Response Assistant. Your role is to:
+            content: `You are RescueLink's AI Emergency Response Assistant for India. Your role is to:
 
 1. IMMEDIATELY assess the emergency type (medical/fire/crime/other)
 2. Collect critical information in this order:
    - Emergency type and brief description
-   - Exact location (ask for address or landmarks)
+   - Exact location (ask for address, landmarks, or area name)
    - Number of people involved/injured
    - Urgency level (1-5 scale, where 5 is life-threatening)
    - Immediate hazards or dangers
@@ -73,6 +73,7 @@ export const useVapi = () => {
    - Provide reassurance and clear instructions
    - Keep responses under 30 seconds
    - Use simple, direct language
+   - Be culturally sensitive for Indian context
 
 4. Once you have collected the essential information, say "EMERGENCY_DATA_COLLECTED" followed by a JSON object with the collected data in this format:
    {
@@ -86,15 +87,15 @@ export const useVapi = () => {
    }
 
 5. After data collection, inform the caller:
-   "I'm now contacting emergency services and dispatching help to your location. Please stay on the line and follow any safety instructions I provide."
+   "I'm now contacting emergency services in India and they will be calling you directly at +91 9714766855 for immediate assistance. Please keep your phone available and follow any safety instructions I provide."
 
 6. Provide immediate safety instructions based on emergency type:
-   - Medical: Basic first aid, don't move injured unless in danger
-   - Fire: Evacuate safely, stay low, don't use elevators
-   - Crime: Move to safety, don't confront, preserve scene if safe
-   - Other: Follow evacuation orders, avoid hazards
+   - Medical: Basic first aid, don't move injured unless in danger, call 102 for ambulance if needed
+   - Fire: Evacuate safely, stay low, call 101 for fire services if needed
+   - Crime: Move to safety, don't confront, call 100 for police if needed
+   - Other: Follow evacuation orders, avoid hazards, call 112 for unified emergency services
 
-Remember: You are the first critical link in emergency response. Emergency services will be automatically contacted and dispatched once data is collected. Stay calm, be clear, and prioritize life safety.`
+Remember: Emergency services will automatically call +91 9714766855 once data is collected. Stay calm, be clear, and prioritize life safety. This is a test system for demonstration purposes.`
           }
         ]
       },
@@ -102,7 +103,7 @@ Remember: You are the first critical link in emergency response. Emergency servi
         provider: 'elevenlabs',
         voiceId: 'pNInz6obpgDQGcFmaJgB' // Professional, calm voice
       },
-      firstMessage: "Hello, this is RescueLink Emergency Response. I'm here to help you right now. Can you tell me what type of emergency you're experiencing - is this medical, fire, crime, or another type of emergency?"
+      firstMessage: "Hello, this is RescueLink Emergency Response for India. I'm here to help you right now. Can you tell me what type of emergency you're experiencing - is this medical, fire, crime, or another type of emergency? Emergency services will contact you directly once I collect the details."
     } : undefined
   };
 
@@ -151,7 +152,7 @@ Remember: You are the first critical link in emergency response. Emergency servi
               console.log('Emergency data collected:', collectedData);
               setEmergencyData(collectedData);
               
-              // Automatically dispatch emergency services
+              // Automatically dispatch emergency services via Vapi calls
               dispatchEmergencyServices(collectedData);
             }
           } catch (error) {
@@ -244,11 +245,12 @@ Remember: You are the first critical link in emergency response. Emergency servi
         transcript: transcript
       };
 
-      console.log('🚨 Dispatching emergency services...');
+      console.log('🚨 Dispatching emergency services to +91 9714766855...');
       const response = await emergencyDispatchService.dispatchEmergencyServices(dispatchData);
       
       if (response.success) {
         console.log('✅ Emergency services dispatched successfully');
+        console.log(`📞 Services will call: +91 9714766855`);
         console.log(`Services contacted: ${response.servicesContacted.join(', ')}`);
         console.log(`Estimated arrival: ${response.estimatedArrival} minutes`);
         setDispatchStatus('dispatched');

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Phone, PhoneOff, Mic, MicOff, Volume2, AlertTriangle, MapPin, Users, Clock, Shield, CheckCircle, Loader } from 'lucide-react';
+import { Phone, PhoneOff, Mic, MicOff, Volume2, AlertTriangle, MapPin, Users, Clock, Shield, CheckCircle, Loader, PhoneCall } from 'lucide-react';
 import { useVapi } from '../hooks/useVapi';
 
 interface VoiceEmergencyInterfaceProps {
@@ -59,9 +59,9 @@ export default function VoiceEmergencyInterface({ onEmergencyDataCollected }: Vo
 
   const getDispatchStatusText = () => {
     switch (dispatchStatus) {
-      case 'dispatching': return 'Contacting Emergency Services...';
-      case 'dispatched': return 'Emergency Services Dispatched';
-      case 'failed': return 'Dispatch Failed - Retry Required';
+      case 'dispatching': return 'Calling Emergency Services at +91 9714766855...';
+      case 'dispatched': return 'Emergency Services Called Successfully';
+      case 'failed': return 'Emergency Call Failed - Retry Required';
       default: return 'Awaiting Emergency Data';
     }
   };
@@ -77,7 +77,7 @@ export default function VoiceEmergencyInterface({ onEmergencyDataCollected }: Vo
         </div>
         <h1 className="text-3xl font-bold text-gray-900">Voice Emergency Response</h1>
         <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-          Speak naturally with our AI assistant to report your emergency. We'll collect all necessary details and automatically contact emergency services.
+          Speak naturally with our AI assistant to report your emergency. We'll collect all necessary details and automatically call emergency services at <span className="font-mono font-bold text-blue-600">+91 9714766855</span>.
         </p>
       </div>
 
@@ -133,7 +133,7 @@ export default function VoiceEmergencyInterface({ onEmergencyDataCollected }: Vo
               <p>• Click the red phone button to start speaking with our AI assistant</p>
               <p>• Describe your emergency clearly - the AI will ask follow-up questions</p>
               <p>• Provide your location, number of people involved, and urgency level</p>
-              <p>• Emergency services will be automatically contacted and dispatched</p>
+              <p>• Emergency services will automatically call <span className="font-mono font-bold">+91 9714766855</span></p>
             </div>
           </div>
         </div>
@@ -144,13 +144,14 @@ export default function VoiceEmergencyInterface({ onEmergencyDataCollected }: Vo
         <div className={`${getDispatchStatusColor()} text-white rounded-xl p-6 text-center`}>
           <div className="flex items-center justify-center space-x-3 mb-2">
             {dispatchStatus === 'dispatching' && <Loader className="w-5 h-5 animate-spin" />}
-            {dispatchStatus === 'dispatched' && <CheckCircle className="w-5 h-5" />}
+            {dispatchStatus === 'dispatched' && <PhoneCall className="w-5 h-5" />}
             {dispatchStatus === 'failed' && <AlertTriangle className="w-5 h-5" />}
             <h3 className="text-xl font-bold">{getDispatchStatusText()}</h3>
           </div>
           {dispatchStatus === 'dispatched' && emergencyData.servicesContacted && (
             <div className="space-y-1 text-white/90">
               <p>Services Contacted: {emergencyData.servicesContacted.join(', ')}</p>
+              <p className="font-mono text-sm">Emergency services will call: +91 9714766855</p>
               {emergencyData.estimatedArrival && (
                 <p>Estimated Arrival: {emergencyData.estimatedArrival} minutes</p>
               )}
@@ -234,11 +235,11 @@ export default function VoiceEmergencyInterface({ onEmergencyDataCollected }: Vo
           
           <div className="mt-4 p-4 bg-green-100 rounded-lg">
             <div className="flex items-center">
-              <CheckCircle className="w-5 h-5 text-green-600 mr-2" />
+              <PhoneCall className="w-5 h-5 text-green-600 mr-2" />
               <p className="text-sm text-green-800 font-medium">
                 {dispatchStatus === 'dispatched' 
-                  ? '✓ Emergency services have been contacted and dispatched to your location'
-                  : '⏳ Contacting emergency services with this information...'
+                  ? '✅ Emergency services have been called and will contact +91 9714766855'
+                  : '⏳ Calling emergency services with this information...'
                 }
               </p>
             </div>
@@ -251,19 +252,19 @@ export default function VoiceEmergencyInterface({ onEmergencyDataCollected }: Vo
         <div className="flex items-center">
           <AlertTriangle className="w-5 h-5 text-yellow-600 mr-2" />
           <p className="text-sm text-yellow-800">
-            <strong>Life-threatening emergency?</strong> Call 911 immediately while using this system for additional support and coordination.
+            <strong>Life-threatening emergency?</strong> Call 112 (India Emergency) immediately while using this system for additional support and coordination.
           </p>
         </div>
       </div>
 
-      {/* Emergency Services Information */}
+      {/* Test Information */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h4 className="font-semibold text-blue-900 mb-2">Emergency Services Integration</h4>
+        <h4 className="font-semibold text-blue-900 mb-2">Testing Information</h4>
         <div className="space-y-1 text-sm text-blue-800">
-          <p>• Automatic 911 dispatch for critical emergencies (Level 4-5)</p>
-          <p>• Direct connection to local fire, police, and medical services</p>
-          <p>• Real-time location sharing with emergency responders</p>
-          <p>• Continuous monitoring until help arrives</p>
+          <p>• This is a test system configured for India (+91 country code)</p>
+          <p>• Emergency services will call: <span className="font-mono font-bold">+91 9714766855</span></p>
+          <p>• All emergency calls will be made using Vapi voice technology</p>
+          <p>• Real emergency services integration ready for production deployment</p>
         </div>
       </div>
     </div>
