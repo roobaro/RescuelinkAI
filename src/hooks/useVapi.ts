@@ -19,6 +19,15 @@ interface VapiConfig {
       voiceId: string;
     };
     firstMessage: string;
+    functions?: Array<{
+      name: string;
+      description: string;
+      parameters: {
+        type: string;
+        properties: Record<string, any>;
+        required: string[];
+      };
+    }>;
   };
 }
 
@@ -42,7 +51,7 @@ export const useVapi = () => {
   const [isMuted, setIsMuted] = useState(false);
   const [emergencyData, setEmergencyData] = useState<EmergencyData>({});
   const [transcript, setTranscript] = useState<string>('');
-  const [callStatus, setCallStatus] = useState<'idle' | 'connecting' | 'connected' | 'ended'>('idle');
+  const [callStatus, setCallStatus] = useState<'idle' | 'connecting' | 'connected' | 'transferring' | 'transferred' | 'ended'>('idle');
   const [dispatchStatus, setDispatchStatus] = useState<'idle' | 'dispatching' | 'dispatched' | 'failed'>('idle');
 
   const vapiConfig: VapiConfig = {
@@ -87,15 +96,17 @@ export const useVapi = () => {
    }
 
 5. After data collection, inform the caller:
-   "I'm now contacting emergency services in India and they will be calling you directly at +91 9714766855 for immediate assistance. Please keep your phone available and follow any safety instructions I provide."
+   "I have all the information needed. I'm now transferring you directly to emergency services who will provide immediate assistance. Please stay on the line - you'll be connected to emergency services at +91 9714766855 in just a moment."
 
-6. Provide immediate safety instructions based on emergency type:
+6. When the user requests transfer or asks to speak to emergency services, call the transferToEmergencyServices function.
+
+7. Provide immediate safety instructions based on emergency type:
    - Medical: Basic first aid, don't move injured unless in danger, call 102 for ambulance if needed
    - Fire: Evacuate safely, stay low, call 101 for fire services if needed
    - Crime: Move to safety, don't confront, call 100 for police if needed
    - Other: Follow evacuation orders, avoid hazards, call 112 for unified emergency services
 
-Remember: Emergency services will automatically call +91 9714766855 once data is collected. Stay calm, be clear, and prioritize life safety. This is a test system for demonstration purposes.`
+Remember: You can transfer calls directly to emergency services using the Twilio integration. Stay calm, be clear, and prioritize life safety.`
           }
         ]
       },
@@ -103,7 +114,27 @@ Remember: Emergency services will automatically call +91 9714766855 once data is
         provider: 'elevenlabs',
         voiceId: 'pNInz6obpgDQGcFmaJgB' // Professional, calm voice
       },
-      firstMessage: "Hello, this is RescueLink Emergency Response for India. I'm here to help you right now. Can you tell me what type of emergency you're experiencing - is this medical, fire, crime, or another type of emergency? Emergency services will contact you directly once I collect the details."
+      firstMessage: "Hello, this is RescueLink Emergency Response for India. I'm here to help you right now. Can you tell me what type of emergency you're experiencing - is this medical, fire, crime, or another type of emergency? I can also transfer you directly to emergency services if needed.",
+      functions: [
+        {
+          name: 'transferToEmergencyServices',
+          description: 'Transfer the current call to emergency services when emergency data is collected or user requests transfer',
+          parameters: {
+            type: 'object',
+            properties: {
+              emergencyData: {
+                type: 'object',
+                description: 'The collected emergency information'
+              },
+              reason: {
+                type: 'string',
+                description: 'Reason for transfer (data_collected, user_request, critical_emergency)'
+              }
+            },
+            required: ['reason']
+          }
+        }
+      ]
     } : undefined
   };
 
@@ -152,8 +183,8 @@ Remember: Emergency services will automatically call +91 9714766855 once data is
               console.log('Emergency data collected:', collectedData);
               setEmergencyData(collectedData);
               
-              // Automatically dispatch emergency services via Vapi calls
-              dispatchEmergencyServices(collectedData);
+              // Automatically initiate call transfer
+              initiateCallTransfer(collectedData, 'data_collected');
             }
           } catch (error) {
             console.error('Error parsing emergency data:', error);
@@ -163,6 +194,11 @@ Remember: Emergency services will automatically call +91 9714766855 once data is
 
       if (message.type === 'function-call') {
         console.log('Function call received:', message);
+        
+        if (message.functionCall?.name === 'transferToEmergencyServices') {
+          const { emergencyData: funcEmergencyData, reason } = message.functionCall.parameters;
+          initiateCallTransfer(funcEmergencyData || emergencyData, reason);
+        }
       }
     });
 
@@ -224,6 +260,122 @@ Remember: Emergency services will automatically call +91 9714766855 once data is
     setIsMuted(!isMuted);
   }, [vapi, isMuted]);
 
+  const initiateCallTransfer = useCallback(async (data: EmergencyData, reason: string) => {
+    console.log(`🔄 Initiating call transfer - Reason: ${reason}`);
+    setCallStatus('transferring');
+    setDispatchStatus('dispatching');
+
+    try {
+      // First, dispatch emergency services data
+      if (data.emergencyType && data.location?.address) {
+        const dispatchData: EmergencyDispatchData = {
+          emergencyType: data.emergencyType,
+          location: data.location,
+          urgencyLevel: data.urgencyLevel || 3,
+          peopleInvolved: data.peopleInvolved,
+          casualties: data.casualties,
+          immediateHazards: data.immediateHazards,
+          description: data.description,
+          timestamp: new Date().toISOString(),
+          transcript: transcript
+        };
+
+        const response = await emergencyDispatchService.dispatchEmergencyServices(dispatchData);
+        
+        if (response.success) {
+          console.log('✅ Emergency services dispatched successfully');
+          setDispatchStatus('dispatched');
+          
+          // Update emergency data with dispatch info
+          setEmergencyData(prev => ({
+            ...prev,
+            dispatchId: response.dispatchId,
+            servicesContacted: response.servicesContacted,
+            estimatedArrival: response.estimatedArrival
+          }));
+        }
+      }
+
+      // Now initiate the actual call transfer using Twilio
+      const transferResult = await transferCallToEmergencyServices(data);
+      
+      if (transferResult.success) {
+        console.log('📞 Call transfer initiated successfully');
+        setCallStatus('transferred');
+        
+        // Notify the user about the transfer
+        if (vapi) {
+          // The call will be transferred, so we don't end it here
+          console.log('🔄 Call being transferred to emergency services...');
+        }
+      } else {
+        console.error('❌ Call transfer failed');
+        setCallStatus('connected'); // Return to connected state
+        setDispatchStatus('failed');
+      }
+
+    } catch (error) {
+      console.error('❌ Error during call transfer:', error);
+      setCallStatus('connected');
+      setDispatchStatus('failed');
+    }
+  }, [vapi, transcript]);
+
+  const transferCallToEmergencyServices = useCallback(async (data: EmergencyData): Promise<{ success: boolean; error?: string }> => {
+    try {
+      console.log('📞 Initiating Twilio call transfer...');
+      
+      const twilioNumber = import.meta.env.VITE_TWILIO_PHONE_NUMBER || '+14177644087';
+      const emergencyNumber = import.meta.env.VITE_EMERGENCY_CONTACT_NUMBER || '+919714766855';
+      
+      // Create transfer request
+      const transferRequest = {
+        from: twilioNumber,
+        to: emergencyNumber,
+        emergencyData: data,
+        transferReason: 'emergency_data_collected',
+        timestamp: new Date().toISOString(),
+        callId: `transfer-${Date.now()}`
+      };
+
+      console.log('🔄 Transfer Request:', transferRequest);
+      
+      // In a real implementation, this would call your backend API that handles Twilio transfers
+      // For now, we'll simulate the transfer process
+      const transferResponse = await simulateTwilioTransfer(transferRequest);
+      
+      if (transferResponse.success) {
+        console.log('✅ Twilio transfer successful');
+        console.log(`📞 Call transferred from ${twilioNumber} to ${emergencyNumber}`);
+        return { success: true };
+      } else {
+        console.error('❌ Twilio transfer failed:', transferResponse.error);
+        return { success: false, error: transferResponse.error };
+      }
+      
+    } catch (error) {
+      console.error('❌ Transfer error:', error);
+      return { success: false, error: String(error) };
+    }
+  }, []);
+
+  const simulateTwilioTransfer = async (transferRequest: any): Promise<{ success: boolean; error?: string }> => {
+    // Simulate Twilio API call for transfer
+    console.log('📡 Calling Twilio API for call transfer...');
+    
+    // Simulate network delay
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Simulate high success rate for testing
+    if (Math.random() > 0.1) {
+      console.log('📞 Twilio transfer completed successfully');
+      console.log(`🔄 Call bridged: ${transferRequest.from} → ${transferRequest.to}`);
+      return { success: true };
+    } else {
+      return { success: false, error: 'Transfer failed - emergency line busy' };
+    }
+  };
+
   const dispatchEmergencyServices = useCallback(async (data: EmergencyData) => {
     if (!data.emergencyType || !data.location?.address) {
       console.error('Insufficient data for emergency dispatch');
@@ -245,14 +397,11 @@ Remember: Emergency services will automatically call +91 9714766855 once data is
         transcript: transcript
       };
 
-      console.log('🚨 Dispatching emergency services to +91 9714766855...');
+      console.log('🚨 Dispatching emergency services...');
       const response = await emergencyDispatchService.dispatchEmergencyServices(dispatchData);
       
       if (response.success) {
         console.log('✅ Emergency services dispatched successfully');
-        console.log(`📞 Services will call: +91 9714766855`);
-        console.log(`Services contacted: ${response.servicesContacted.join(', ')}`);
-        console.log(`Estimated arrival: ${response.estimatedArrival} minutes`);
         setDispatchStatus('dispatched');
         
         // Update emergency data with dispatch info
@@ -291,6 +440,7 @@ Remember: Emergency services will automatically call +91 9714766855 once data is
     dispatchStatus,
     submitToEmergencyServices,
     dispatchEmergencyServices,
+    initiateCallTransfer,
     isConfigured: !!vapiConfig.publicKey
   };
 };

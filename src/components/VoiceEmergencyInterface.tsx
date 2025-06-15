@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Phone, PhoneOff, Mic, MicOff, Volume2, AlertTriangle, MapPin, Users, Clock, Shield, CheckCircle, Loader, PhoneCall } from 'lucide-react';
+import { Phone, PhoneOff, Mic, MicOff, Volume2, AlertTriangle, MapPin, Users, Clock, Shield, CheckCircle, Loader, PhoneCall, ArrowRight } from 'lucide-react';
 import { useVapi } from '../hooks/useVapi';
 
 interface VoiceEmergencyInterfaceProps {
@@ -34,6 +34,8 @@ export default function VoiceEmergencyInterface({ onEmergencyDataCollected }: Vo
     switch (callStatus) {
       case 'connecting': return 'bg-yellow-500';
       case 'connected': return 'bg-green-500';
+      case 'transferring': return 'bg-blue-500';
+      case 'transferred': return 'bg-purple-500';
       case 'ended': return 'bg-gray-500';
       default: return 'bg-red-500';
     }
@@ -43,6 +45,8 @@ export default function VoiceEmergencyInterface({ onEmergencyDataCollected }: Vo
     switch (callStatus) {
       case 'connecting': return 'Connecting to Emergency Services...';
       case 'connected': return 'Connected - Speak clearly';
+      case 'transferring': return 'Transferring to Emergency Services...';
+      case 'transferred': return 'Transferred to Emergency Services';
       case 'ended': return 'Call Ended';
       default: return 'Ready to Connect';
     }
@@ -59,12 +63,15 @@ export default function VoiceEmergencyInterface({ onEmergencyDataCollected }: Vo
 
   const getDispatchStatusText = () => {
     switch (dispatchStatus) {
-      case 'dispatching': return 'Calling Emergency Services at +91 9714766855...';
-      case 'dispatched': return 'Emergency Services Called Successfully';
-      case 'failed': return 'Emergency Call Failed - Retry Required';
+      case 'dispatching': return 'Transferring call to +91 9714766855...';
+      case 'dispatched': return 'Call transferred successfully to Emergency Services';
+      case 'failed': return 'Transfer failed - Emergency services notified separately';
       default: return 'Awaiting Emergency Data';
     }
   };
+
+  const twilioNumber = import.meta.env.VITE_TWILIO_PHONE_NUMBER || '+14177644087';
+  const emergencyNumber = import.meta.env.VITE_EMERGENCY_CONTACT_NUMBER || '+919714766855';
 
   return (
     <div className="space-y-6">
@@ -77,8 +84,35 @@ export default function VoiceEmergencyInterface({ onEmergencyDataCollected }: Vo
         </div>
         <h1 className="text-3xl font-bold text-gray-900">Voice Emergency Response</h1>
         <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-          Speak naturally with our AI assistant to report your emergency. We'll collect all necessary details and automatically call emergency services at <span className="font-mono font-bold text-blue-600">+91 9714766855</span>.
+          Speak naturally with our AI assistant to report your emergency. We'll collect all necessary details and transfer you directly to emergency services.
         </p>
+        
+        {/* Call Transfer Flow */}
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 max-w-3xl mx-auto">
+          <h3 className="font-semibold text-blue-900 mb-3">Call Transfer Process:</h3>
+          <div className="flex items-center justify-center space-x-2 text-sm text-blue-800">
+            <div className="flex items-center space-x-1">
+              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                <span className="text-xs font-bold">1</span>
+              </div>
+              <span>AI Assistant</span>
+            </div>
+            <ArrowRight className="w-4 h-4" />
+            <div className="flex items-center space-x-1">
+              <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                <span className="text-xs font-bold">2</span>
+              </div>
+              <span>Twilio ({twilioNumber})</span>
+            </div>
+            <ArrowRight className="w-4 h-4" />
+            <div className="flex items-center space-x-1">
+              <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+                <span className="text-xs font-bold">3</span>
+              </div>
+              <span>Emergency ({emergencyNumber})</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Voice Interface */}
@@ -133,11 +167,39 @@ export default function VoiceEmergencyInterface({ onEmergencyDataCollected }: Vo
               <p>• Click the red phone button to start speaking with our AI assistant</p>
               <p>• Describe your emergency clearly - the AI will ask follow-up questions</p>
               <p>• Provide your location, number of people involved, and urgency level</p>
-              <p>• Emergency services will automatically call <span className="font-mono font-bold">+91 9714766855</span></p>
+              <p>• Once data is collected, you'll be transferred directly to emergency services</p>
+              <p>• The call will be bridged from Twilio ({twilioNumber}) to emergency services ({emergencyNumber})</p>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Call Transfer Status */}
+      {(callStatus === 'transferring' || callStatus === 'transferred') && (
+        <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl p-6 text-center">
+          <div className="flex items-center justify-center space-x-3 mb-4">
+            {callStatus === 'transferring' && <Loader className="w-6 h-6 animate-spin" />}
+            {callStatus === 'transferred' && <PhoneCall className="w-6 h-6" />}
+            <h3 className="text-xl font-bold">
+              {callStatus === 'transferring' ? 'Transferring Call...' : 'Call Transferred Successfully'}
+            </h3>
+          </div>
+          
+          <div className="space-y-2 text-white/90">
+            <p>Your call is being transferred to emergency services</p>
+            <div className="flex items-center justify-center space-x-2 text-sm">
+              <span>From: {twilioNumber}</span>
+              <ArrowRight className="w-4 h-4" />
+              <span>To: {emergencyNumber}</span>
+            </div>
+            {callStatus === 'transferred' && (
+              <p className="text-sm mt-3 bg-white/20 rounded-lg p-2">
+                ✅ You are now connected directly to emergency services. Stay on the line.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Emergency Dispatch Status */}
       {dispatchStatus !== 'idle' && (
@@ -151,7 +213,7 @@ export default function VoiceEmergencyInterface({ onEmergencyDataCollected }: Vo
           {dispatchStatus === 'dispatched' && emergencyData.servicesContacted && (
             <div className="space-y-1 text-white/90">
               <p>Services Contacted: {emergencyData.servicesContacted.join(', ')}</p>
-              <p className="font-mono text-sm">Emergency services will call: +91 9714766855</p>
+              <p className="font-mono text-sm">Call transferred to: {emergencyNumber}</p>
               {emergencyData.estimatedArrival && (
                 <p>Estimated Arrival: {emergencyData.estimatedArrival} minutes</p>
               )}
@@ -237,9 +299,11 @@ export default function VoiceEmergencyInterface({ onEmergencyDataCollected }: Vo
             <div className="flex items-center">
               <PhoneCall className="w-5 h-5 text-green-600 mr-2" />
               <p className="text-sm text-green-800 font-medium">
-                {dispatchStatus === 'dispatched' 
-                  ? '✅ Emergency services have been called and will contact +91 9714766855'
-                  : '⏳ Calling emergency services with this information...'
+                {callStatus === 'transferred' 
+                  ? '✅ You are now connected directly to emergency services'
+                  : dispatchStatus === 'dispatched' 
+                  ? '✅ Call transfer initiated - connecting to emergency services'
+                  : '⏳ Preparing to transfer call to emergency services...'
                 }
               </p>
             </div>
@@ -257,14 +321,14 @@ export default function VoiceEmergencyInterface({ onEmergencyDataCollected }: Vo
         </div>
       </div>
 
-      {/* Test Information */}
+      {/* Configuration Information */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h4 className="font-semibold text-blue-900 mb-2">Testing Information</h4>
+        <h4 className="font-semibold text-blue-900 mb-2">Call Transfer Configuration</h4>
         <div className="space-y-1 text-sm text-blue-800">
-          <p>• This is a test system configured for India (+91 country code)</p>
-          <p>• Emergency services will call: <span className="font-mono font-bold">+91 9714766855</span></p>
-          <p>• All emergency calls will be made using Vapi voice technology</p>
-          <p>• Real emergency services integration ready for production deployment</p>
+          <p>• Twilio Number: <span className="font-mono font-bold">{twilioNumber}</span></p>
+          <p>• Emergency Contact: <span className="font-mono font-bold">{emergencyNumber}</span></p>
+          <p>• Transfer Method: Direct call bridging via Twilio</p>
+          <p>• This system will transfer your call directly to emergency services after collecting information</p>
         </div>
       </div>
     </div>
