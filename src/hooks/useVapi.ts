@@ -91,12 +91,20 @@ export const useVapi = () => {
       return false;
     }
     
-    if (publicKey === 'your_actual_vapi_public_key_here' || publicKey === 'f58e8f69-9c72-47e7-b46b-cc8cd5aa7549') {
+    // Check for common placeholder values
+    const placeholderValues = [
+      'your_actual_vapi_public_key_here',
+      'your_vapi_public_key',
+      'replace_with_your_key',
+      'placeholder_key'
+    ];
+    
+    if (placeholderValues.includes(publicKey)) {
       console.error('❌ Please replace the placeholder Vapi Public Key with your actual key from https://dashboard.vapi.ai');
       return false;
     }
     
-    if (publicKey.length < 20) {
+    if (publicKey.length < 10) {
       console.error('❌ Vapi Public Key appears to be invalid (too short)');
       return false;
     }
