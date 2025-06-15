@@ -142,6 +142,7 @@ Remember: You can transfer calls directly to emergency services using the Twilio
   useEffect(() => {
     if (!vapiConfig.publicKey) {
       console.error('Vapi public key not found. Please add VITE_VAPI_PUBLIC_KEY to your .env file');
+      setVapiErrorMessage('Vapi API key not configured. Please check your environment variables.');
       return;
     }
 
@@ -207,7 +208,7 @@ Remember: You can transfer calls directly to emergency services using the Twilio
     vapiInstance.on('error', (error: any) => {
       console.error('Vapi error:', error);
       
-      // Extract specific error message from the error object
+      // Enhanced error handling for ejection and other common issues
       let errorMessage = 'Call ended unexpectedly';
       
       if (error && typeof error === 'object') {
@@ -218,22 +219,28 @@ Remember: You can transfer calls directly to emergency services using the Twilio
         } else if (error.error && error.error.type) {
           switch (error.error.type) {
             case 'ejected':
-              errorMessage = 'Call was terminated by the server';
+              errorMessage = 'Call was terminated by Vapi. This may be due to: API key issues, account limits reached, or assistant configuration problems. Please check your Vapi dashboard for more details.';
               break;
             case 'network':
-              errorMessage = 'Network connection lost';
+              errorMessage = 'Network connection lost. Please check your internet connection and try again.';
               break;
             case 'timeout':
-              errorMessage = 'Call timed out';
+              errorMessage = 'Call timed out. Please try starting a new call.';
               break;
             case 'authentication':
-              errorMessage = 'Authentication failed - please check your API key';
+              errorMessage = 'Authentication failed. Please verify your Vapi API key is correct and active.';
               break;
             case 'quota_exceeded':
-              errorMessage = 'API quota exceeded - please check your account';
+              errorMessage = 'API quota exceeded. Please check your Vapi account credits and usage limits.';
+              break;
+            case 'assistant_not_found':
+              errorMessage = 'Assistant configuration not found. Please check your assistant ID or configuration.';
+              break;
+            case 'invalid_request':
+              errorMessage = 'Invalid request sent to Vapi. Please check your assistant configuration.';
               break;
             default:
-              errorMessage = `Call error: ${error.error.type}`;
+              errorMessage = `Call error (${error.error.type}): ${error.error.msg || 'Unknown error occurred'}`;
           }
         }
       }
@@ -253,6 +260,12 @@ Remember: You can transfer calls directly to emergency services using the Twilio
   const startCall = useCallback(async () => {
     if (!vapi) {
       console.error('Vapi instance not initialized');
+      setVapiErrorMessage('Vapi service not available. Please refresh the page and try again.');
+      return;
+    }
+
+    if (!vapiConfig.publicKey) {
+      setVapiErrorMessage('Vapi API key not configured. Please check your environment variables.');
       return;
     }
     
@@ -265,8 +278,10 @@ Remember: You can transfer calls directly to emergency services using the Twilio
       
       // Use custom assistant ID if provided, otherwise use inline assistant config
       if (vapiConfig.assistantId) {
+        console.log('Starting call with assistant ID:', vapiConfig.assistantId);
         await vapi.start(vapiConfig.assistantId);
       } else if (vapiConfig.assistant) {
+        console.log('Starting call with inline assistant configuration');
         await vapi.start(vapiConfig.assistant);
       } else {
         throw new Error('No assistant configuration available');
@@ -274,9 +289,25 @@ Remember: You can transfer calls directly to emergency services using the Twilio
     } catch (error) {
       console.error('Failed to start call:', error);
       setCallStatus('ended');
-      setVapiErrorMessage('Failed to start call - please check your connection and try again');
+      
+      // Enhanced error handling for start call failures
+      let startErrorMessage = 'Failed to start call';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('assistant')) {
+          startErrorMessage = 'Assistant configuration error. Please check your Vapi assistant settings.';
+        } else if (error.message.includes('auth')) {
+          startErrorMessage = 'Authentication failed. Please verify your Vapi API key.';
+        } else if (error.message.includes('network')) {
+          startErrorMessage = 'Network error. Please check your internet connection.';
+        } else {
+          startErrorMessage = `Failed to start call: ${error.message}`;
+        }
+      }
+      
+      setVapiErrorMessage(startErrorMessage);
     }
-  }, [vapi, vapiConfig.assistantId, vapiConfig.assistant]);
+  }, [vapi, vapiConfig.assistantId, vapiConfig.assistant, vapiConfig.publicKey]);
 
   const endCall = useCallback(() => {
     if (!vapi) return;
