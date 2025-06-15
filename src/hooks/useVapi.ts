@@ -76,11 +76,7 @@ export const useVapi = () => {
     threeWayActive: false
   });
   const [emergencyServiceCall, setEmergencyServiceCall] = useState<any>(null);
-  const [connectionPersistence, setConnectionPersistence] = useState({
-    userConnectionActive: false,
-    emergencyServiceConnectionActive: false,
-    keepAliveInterval: null as NodeJS.Timeout | null
-  });
+  const [keepAliveIntervalId, setKeepAliveIntervalId] = useState<NodeJS.Timeout | null>(null);
 
   // Check if Vapi is properly configured
   const isVapiConfigured = useCallback(() => {
@@ -235,10 +231,19 @@ Remember: Every second counts in emergencies. Act with urgency while maintaining
     } : undefined
   };
 
-  // Connection persistence management
-  const maintainConnectionPersistence = useCallback(() => {
-    const keepAlive = setInterval(() => {
-      if (isSessionActive && (callStatus === 'connected' || callStatus === 'transferring' || callStatus === 'transferred')) {
+  // Manage connection persistence with proper interval lifecycle
+  useEffect(() => {
+    // Clear any existing interval
+    if (keepAliveIntervalId) {
+      clearInterval(keepAliveIntervalId);
+      setKeepAliveIntervalId(null);
+    }
+
+    // Start interval if session is active and in appropriate call status
+    if (isSessionActive && (callStatus === 'connected' || callStatus === 'transferring' || callStatus === 'transferred')) {
+      console.log('🔄 Starting connection persistence monitoring...');
+      
+      const intervalId = setInterval(() => {
         console.log('🔄 Maintaining connection persistence...');
         
         // Check connection health
@@ -257,16 +262,18 @@ Remember: Every second counts in emergencies. Act with urgency while maintaining
           threeWayActive: transferStatus.threeWayActive,
           transferAttempts: transferStatus.attempts
         });
+      }, 10000); // Check every 10 seconds
+
+      setKeepAliveIntervalId(intervalId);
+    }
+
+    // Cleanup function
+    return () => {
+      if (keepAliveIntervalId) {
+        clearInterval(keepAliveIntervalId);
       }
-    }, 10000); // Check every 10 seconds
-
-    setConnectionPersistence(prev => ({
-      ...prev,
-      keepAliveInterval: keepAlive
-    }));
-
-    return keepAlive;
-  }, [isSessionActive, callStatus, vapi, transferStatus]);
+    };
+  }, [isSessionActive, callStatus, vapi, transferStatus.userConnected, transferStatus.emergencyServiceConnected, transferStatus.threeWayActive, transferStatus.attempts]);
 
   // Enhanced error handling with retry logic
   const handleTransferError = useCallback(async (error: any, attempt: number) => {
@@ -524,20 +531,12 @@ Dispatch ID: ${data.dispatchId || 'Pending'}
         ...prev,
         userConnected: true
       }));
-      
-      // Start connection persistence monitoring
-      maintainConnectionPersistence();
     });
 
     vapiInstance.on('call-end', () => {
       console.log('📞 Call ended');
       setCallStatus('ended');
       setIsSessionActive(false);
-      
-      // Clear connection persistence
-      if (connectionPersistence.keepAliveInterval) {
-        clearInterval(connectionPersistence.keepAliveInterval);
-      }
       
       setTransferStatus(prev => ({
         ...prev,
@@ -608,9 +607,6 @@ Dispatch ID: ${data.dispatchId || 'Pending'}
           case 'updateEmergencyStatus':
             const { status, keepConnection } = parameters;
             console.log(`📊 Emergency status update: ${status}, Keep connection: ${keepConnection}`);
-            if (keepConnection) {
-              maintainConnectionPersistence();
-            }
             break;
         }
       }
@@ -650,19 +646,11 @@ Dispatch ID: ${data.dispatchId || 'Pending'}
       setVapiErrorMessage(errorMessage);
       setCallStatus('ended');
       setIsSessionActive(false);
-      
-      // Clear connection persistence on error
-      if (connectionPersistence.keepAliveInterval) {
-        clearInterval(connectionPersistence.keepAliveInterval);
-      }
     });
 
     return () => {
       if (vapiInstance) {
         vapiInstance.stop();
-      }
-      if (connectionPersistence.keepAliveInterval) {
-        clearInterval(connectionPersistence.keepAliveInterval);
       }
     };
   }, []);
@@ -739,11 +727,6 @@ Dispatch ID: ${data.dispatchId || 'Pending'}
     setIsSessionActive(false);
     setVapiErrorMessage('');
     
-    // Clear connection persistence
-    if (connectionPersistence.keepAliveInterval) {
-      clearInterval(connectionPersistence.keepAliveInterval);
-    }
-    
     // Reset transfer status
     setTransferStatus({
       status: 'idle',
@@ -752,7 +735,7 @@ Dispatch ID: ${data.dispatchId || 'Pending'}
       userConnected: false,
       threeWayActive: false
     });
-  }, [vapi, transferStatus.status, emergencyData.emergencyType, connectionPersistence.keepAliveInterval]);
+  }, [vapi, transferStatus.status, emergencyData.emergencyType]);
 
   const toggleMute = useCallback(() => {
     if (!vapi) return;
@@ -783,7 +766,6 @@ Dispatch ID: ${data.dispatchId || 'Pending'}
     vapiErrorMessage,
     transferStatus,
     emergencyServiceCall,
-    connectionPersistence,
     submitToEmergencyServices: initiateEmergencyTransfer,
     dispatchEmergencyServices: initiateEmergencyTransfer,
     initiateCallTransfer: initiateEmergencyTransfer,
