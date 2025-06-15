@@ -82,6 +82,28 @@ export const useVapi = () => {
     keepAliveInterval: null as NodeJS.Timeout | null
   });
 
+  // Check if Vapi is properly configured
+  const isVapiConfigured = useCallback(() => {
+    const publicKey = import.meta.env.VITE_VAPI_PUBLIC_KEY;
+    
+    if (!publicKey) {
+      console.error('❌ VITE_VAPI_PUBLIC_KEY not found in environment variables');
+      return false;
+    }
+    
+    if (publicKey === 'your_actual_vapi_public_key_here' || publicKey === 'f58e8f69-9c72-47e7-b46b-cc8cd5aa7549') {
+      console.error('❌ Please replace the placeholder Vapi Public Key with your actual key from https://dashboard.vapi.ai');
+      return false;
+    }
+    
+    if (publicKey.length < 20) {
+      console.error('❌ Vapi Public Key appears to be invalid (too short)');
+      return false;
+    }
+    
+    return true;
+  }, []);
+
   const vapiConfig: VapiConfig = {
     publicKey: import.meta.env.VITE_VAPI_PUBLIC_KEY || '',
     assistantId: import.meta.env.VITE_VAPI_ASSISTANT_ID,
@@ -474,9 +496,9 @@ Dispatch ID: ${data.dispatchId || 'Pending'}
   }, []);
 
   useEffect(() => {
-    if (!vapiConfig.publicKey) {
-      console.error('Vapi public key not found. Please add VITE_VAPI_PUBLIC_KEY to your .env file');
-      setVapiErrorMessage('Vapi API key not configured. Please check your environment variables.');
+    // Check configuration before initializing
+    if (!isVapiConfigured()) {
+      setVapiErrorMessage('Vapi API key not configured properly. Please check your .env file and ensure you have a valid VITE_VAPI_PUBLIC_KEY from https://dashboard.vapi.ai');
       return;
     }
 
@@ -586,7 +608,7 @@ Dispatch ID: ${data.dispatchId || 'Pending'}
       }
     });
 
-    // Enhanced error handling
+    // Enhanced error handling with specific handling for ejection errors
     vapiInstance.on('error', (error: any) => {
       console.error('❌ Vapi error:', error);
       
@@ -600,15 +622,10 @@ Dispatch ID: ${data.dispatchId || 'Pending'}
         } else if (error.error && error.error.type) {
           switch (error.error.type) {
             case 'ejected':
-              errorMessage = 'Emergency call was terminated. This may be due to API limits or configuration issues. Attempting to reconnect...';
+              errorMessage = 'Connection rejected by Vapi service. This usually means your API key is invalid, expired, or has reached its usage limits. Please check your Vapi dashboard at https://dashboard.vapi.ai and update your VITE_VAPI_PUBLIC_KEY in the .env file.';
               
-              // Auto-reconnect for emergency situations
-              if (transferStatus.status !== 'idle' || emergencyData.emergencyType) {
-                console.log('🔄 Auto-reconnecting for emergency situation...');
-                setTimeout(() => {
-                  startCall();
-                }, 3000);
-              }
+              // Don't auto-reconnect for ejection errors as they indicate configuration issues
+              console.error('🚫 Ejection error detected - check your Vapi API key configuration');
               break;
             case 'network':
               errorMessage = 'Network connection lost during emergency call. Attempting to reconnect...';
@@ -643,14 +660,14 @@ Dispatch ID: ${data.dispatchId || 'Pending'}
   }, []);
 
   const startCall = useCallback(async () => {
-    if (!vapi) {
-      console.error('Vapi instance not initialized');
-      setVapiErrorMessage('Emergency system not available. Please refresh and try again.');
+    if (!isVapiConfigured()) {
+      setVapiErrorMessage('Vapi API key not configured properly. Please check your .env file and ensure you have a valid VITE_VAPI_PUBLIC_KEY from https://dashboard.vapi.ai');
       return;
     }
 
-    if (!vapiConfig.publicKey) {
-      setVapiErrorMessage('Emergency system not configured. Please check configuration.');
+    if (!vapi) {
+      console.error('Vapi instance not initialized');
+      setVapiErrorMessage('Emergency system not available. Please refresh and try again.');
       return;
     }
     
@@ -691,7 +708,7 @@ Dispatch ID: ${data.dispatchId || 'Pending'}
         if (error.message.includes('assistant')) {
           startErrorMessage = 'Emergency assistant configuration error. Please contact support.';
         } else if (error.message.includes('auth')) {
-          startErrorMessage = 'Emergency system authentication failed. Please contact support.';
+          startErrorMessage = 'Emergency system authentication failed. Please check your Vapi API key.';
         } else {
           startErrorMessage = `Emergency system error: ${error.message}`;
         }
@@ -699,7 +716,7 @@ Dispatch ID: ${data.dispatchId || 'Pending'}
       
       setVapiErrorMessage(startErrorMessage);
     }
-  }, [vapi, vapiConfig.assistantId, vapiConfig.assistant, vapiConfig.publicKey]);
+  }, [vapi, vapiConfig.assistantId, vapiConfig.assistant, isVapiConfigured]);
 
   const endCall = useCallback(() => {
     if (!vapi) return;
@@ -762,6 +779,6 @@ Dispatch ID: ${data.dispatchId || 'Pending'}
     submitToEmergencyServices: initiateEmergencyTransfer,
     dispatchEmergencyServices: initiateEmergencyTransfer,
     initiateCallTransfer: initiateEmergencyTransfer,
-    isConfigured: !!vapiConfig.publicKey
+    isConfigured: isVapiConfigured()
   };
 };
