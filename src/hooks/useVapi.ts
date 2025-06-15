@@ -53,6 +53,7 @@ export const useVapi = () => {
   const [transcript, setTranscript] = useState<string>('');
   const [callStatus, setCallStatus] = useState<'idle' | 'connecting' | 'connected' | 'transferring' | 'transferred' | 'ended'>('idle');
   const [dispatchStatus, setDispatchStatus] = useState<'idle' | 'dispatching' | 'dispatched' | 'failed'>('idle');
+  const [vapiErrorMessage, setVapiErrorMessage] = useState<string>('');
 
   const vapiConfig: VapiConfig = {
     publicKey: import.meta.env.VITE_VAPI_PUBLIC_KEY || '',
@@ -152,6 +153,7 @@ Remember: You can transfer calls directly to emergency services using the Twilio
       console.log('Call started');
       setCallStatus('connected');
       setIsSessionActive(true);
+      setVapiErrorMessage(''); // Clear any previous error messages
     });
 
     vapiInstance.on('call-end', () => {
@@ -204,6 +206,39 @@ Remember: You can transfer calls directly to emergency services using the Twilio
 
     vapiInstance.on('error', (error: any) => {
       console.error('Vapi error:', error);
+      
+      // Extract specific error message from the error object
+      let errorMessage = 'Call ended unexpectedly';
+      
+      if (error && typeof error === 'object') {
+        if (error.errorMsg) {
+          errorMessage = error.errorMsg;
+        } else if (error.error && error.error.msg) {
+          errorMessage = error.error.msg;
+        } else if (error.error && error.error.type) {
+          switch (error.error.type) {
+            case 'ejected':
+              errorMessage = 'Call was terminated by the server';
+              break;
+            case 'network':
+              errorMessage = 'Network connection lost';
+              break;
+            case 'timeout':
+              errorMessage = 'Call timed out';
+              break;
+            case 'authentication':
+              errorMessage = 'Authentication failed - please check your API key';
+              break;
+            case 'quota_exceeded':
+              errorMessage = 'API quota exceeded - please check your account';
+              break;
+            default:
+              errorMessage = `Call error: ${error.error.type}`;
+          }
+        }
+      }
+      
+      setVapiErrorMessage(errorMessage);
       setCallStatus('ended');
       setIsSessionActive(false);
     });
@@ -226,6 +261,7 @@ Remember: You can transfer calls directly to emergency services using the Twilio
       setTranscript('');
       setEmergencyData({});
       setDispatchStatus('idle');
+      setVapiErrorMessage(''); // Clear any previous error messages
       
       // Use custom assistant ID if provided, otherwise use inline assistant config
       if (vapiConfig.assistantId) {
@@ -238,6 +274,7 @@ Remember: You can transfer calls directly to emergency services using the Twilio
     } catch (error) {
       console.error('Failed to start call:', error);
       setCallStatus('ended');
+      setVapiErrorMessage('Failed to start call - please check your connection and try again');
     }
   }, [vapi, vapiConfig.assistantId, vapiConfig.assistant]);
 
@@ -247,6 +284,7 @@ Remember: You can transfer calls directly to emergency services using the Twilio
     vapi.stop();
     setCallStatus('ended');
     setIsSessionActive(false);
+    setVapiErrorMessage(''); // Clear error message on manual end
   }, [vapi]);
 
   const toggleMute = useCallback(() => {
@@ -438,6 +476,7 @@ Remember: You can transfer calls directly to emergency services using the Twilio
     transcript,
     callStatus,
     dispatchStatus,
+    vapiErrorMessage,
     submitToEmergencyServices,
     dispatchEmergencyServices,
     initiateCallTransfer,

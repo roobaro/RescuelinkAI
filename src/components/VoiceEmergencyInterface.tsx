@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Phone, PhoneOff, Mic, MicOff, Volume2, AlertTriangle, MapPin, Users, Clock, Shield, CheckCircle, Loader, PhoneCall, ArrowRight } from 'lucide-react';
+import { Phone, PhoneOff, Mic, MicOff, Volume2, AlertTriangle, MapPin, Users, Clock, Shield, CheckCircle, Loader, PhoneCall, ArrowRight, XCircle } from 'lucide-react';
 import { useVapi } from '../hooks/useVapi';
 
 interface VoiceEmergencyInterfaceProps {
@@ -17,6 +17,7 @@ export default function VoiceEmergencyInterface({ onEmergencyDataCollected }: Vo
     transcript,
     callStatus,
     dispatchStatus,
+    vapiErrorMessage,
     submitToEmergencyServices
   } = useVapi();
 
@@ -36,7 +37,7 @@ export default function VoiceEmergencyInterface({ onEmergencyDataCollected }: Vo
       case 'connected': return 'bg-green-500';
       case 'transferring': return 'bg-blue-500';
       case 'transferred': return 'bg-purple-500';
-      case 'ended': return 'bg-gray-500';
+      case 'ended': return vapiErrorMessage ? 'bg-red-500' : 'bg-gray-500';
       default: return 'bg-red-500';
     }
   };
@@ -47,7 +48,7 @@ export default function VoiceEmergencyInterface({ onEmergencyDataCollected }: Vo
       case 'connected': return 'Connected - Speak clearly';
       case 'transferring': return 'Transferring to Emergency Services...';
       case 'transferred': return 'Transferred to Emergency Services';
-      case 'ended': return 'Call Ended';
+      case 'ended': return vapiErrorMessage ? 'Call Error' : 'Call Ended';
       default: return 'Ready to Connect';
     }
   };
@@ -123,6 +124,32 @@ export default function VoiceEmergencyInterface({ onEmergencyDataCollected }: Vo
             <div className={`w-4 h-4 rounded-full ${getStatusColor()} ${isSessionActive ? 'animate-pulse' : ''}`}></div>
             <span className="text-lg font-medium text-gray-700">{getStatusText()}</span>
           </div>
+
+          {/* Error Message Display */}
+          {vapiErrorMessage && callStatus === 'ended' && (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-4 max-w-2xl mx-auto">
+              <div className="flex items-center justify-center space-x-3 mb-2">
+                <XCircle className="w-6 h-6 text-red-600" />
+                <h3 className="text-lg font-semibold text-red-900">Call Error</h3>
+              </div>
+              <p className="text-red-800 text-sm mb-3">{vapiErrorMessage}</p>
+              <div className="space-y-2 text-xs text-red-700">
+                <p><strong>Troubleshooting tips:</strong></p>
+                <ul className="list-disc list-inside space-y-1 text-left">
+                  <li>Check your internet connection and try again</li>
+                  <li>Ensure microphone permissions are granted</li>
+                  <li>If the problem persists, contact support</li>
+                  <li>For immediate emergencies, call 112 directly</li>
+                </ul>
+              </div>
+              <button
+                onClick={startCall}
+                className="mt-3 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm transition-colors"
+              >
+                Try Again
+              </button>
+            </div>
+          )}
 
           {/* Call Controls */}
           <div className="flex items-center justify-center space-x-4">
