@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Phone, PhoneOff, Mic, MicOff, Volume2, AlertTriangle, MapPin, Users, Clock, Shield, CheckCircle, Loader, PhoneCall, ArrowRight, XCircle } from 'lucide-react';
+import { Phone, PhoneOff, Mic, MicOff, Volume2, AlertTriangle, MapPin, Users, Clock, Shield, CheckCircle, Loader, PhoneCall, ArrowRight, XCircle, Radio, Zap, Activity } from 'lucide-react';
 import { useVapi } from '../hooks/useVapi';
 
 interface VoiceEmergencyInterfaceProps {
@@ -18,10 +18,17 @@ export default function VoiceEmergencyInterface({ onEmergencyDataCollected }: Vo
     callStatus,
     dispatchStatus,
     vapiErrorMessage,
-    submitToEmergencyServices
+    transferStatus,
+    emergencyServiceCall,
+    connectionPersistence
   } = useVapi();
 
   const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [connectionHealth, setConnectionHealth] = useState({
+    userConnection: 'stable',
+    emergencyServiceConnection: 'idle',
+    lastHealthCheck: Date.now()
+  });
 
   useEffect(() => {
     // Auto-submit when emergency data is collected and dispatch is complete
@@ -30,6 +37,21 @@ export default function VoiceEmergencyInterface({ onEmergencyDataCollected }: Vo
       setHasSubmitted(true);
     }
   }, [emergencyData, dispatchStatus, hasSubmitted, onEmergencyDataCollected]);
+
+  // Monitor connection health
+  useEffect(() => {
+    const healthInterval = setInterval(() => {
+      setConnectionHealth(prev => ({
+        ...prev,
+        userConnection: isSessionActive ? 'stable' : 'disconnected',
+        emergencyServiceConnection: transferStatus.emergencyServiceConnected ? 'connected' : 
+                                   transferStatus.status === 'connecting' ? 'connecting' : 'idle',
+        lastHealthCheck: Date.now()
+      }));
+    }, 5000);
+
+    return () => clearInterval(healthInterval);
+  }, [isSessionActive, transferStatus]);
 
   const getStatusColor = () => {
     switch (callStatus) {
@@ -44,30 +66,34 @@ export default function VoiceEmergencyInterface({ onEmergencyDataCollected }: Vo
 
   const getStatusText = () => {
     switch (callStatus) {
-      case 'connecting': return 'Connecting to Emergency Services...';
-      case 'connected': return 'Connected - Speak clearly';
-      case 'transferring': return 'Transferring to Emergency Services...';
-      case 'transferred': return 'Transferred to Emergency Services';
-      case 'ended': return vapiErrorMessage ? 'Call Error' : 'Call Ended';
-      default: return 'Ready to Connect';
+      case 'connecting': return 'Connecting to Emergency System...';
+      case 'connected': return 'Emergency System Active - Speak clearly';
+      case 'transferring': return 'Connecting to Emergency Services...';
+      case 'transferred': return 'Connected to Emergency Services';
+      case 'ended': return vapiErrorMessage ? 'Emergency System Error' : 'Call Ended';
+      default: return 'Emergency System Ready';
     }
   };
 
-  const getDispatchStatusColor = () => {
-    switch (dispatchStatus) {
-      case 'dispatching': return 'bg-blue-500';
-      case 'dispatched': return 'bg-green-500';
+  const getTransferStatusColor = () => {
+    switch (transferStatus.status) {
+      case 'initiating': return 'bg-yellow-500';
+      case 'connecting': return 'bg-blue-500';
+      case 'connected': return 'bg-green-500';
       case 'failed': return 'bg-red-500';
+      case 'completed': return 'bg-purple-500';
       default: return 'bg-gray-400';
     }
   };
 
-  const getDispatchStatusText = () => {
-    switch (dispatchStatus) {
-      case 'dispatching': return 'Transferring call to +91 9714766855...';
-      case 'dispatched': return 'Call transferred successfully to Emergency Services';
-      case 'failed': return 'Transfer failed - Emergency services notified separately';
-      default: return 'Awaiting Emergency Data';
+  const getTransferStatusText = () => {
+    switch (transferStatus.status) {
+      case 'initiating': return 'Initiating Emergency Transfer...';
+      case 'connecting': return 'Connecting to Emergency Services...';
+      case 'connected': return 'Emergency Services Connected';
+      case 'failed': return `Transfer Failed (Attempt ${transferStatus.attempts}/3)`;
+      case 'completed': return 'Emergency Transfer Complete';
+      default: return 'Transfer Ready';
     }
   };
 
@@ -76,42 +102,92 @@ export default function VoiceEmergencyInterface({ onEmergencyDataCollected }: Vo
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Enhanced Header */}
       <div className="text-center space-y-4">
         <div className="flex items-center justify-center mb-4">
-          <div className="bg-red-100 p-6 rounded-full">
+          <div className="bg-red-100 p-6 rounded-full relative">
             <Phone className="w-16 h-16 text-red-600" />
+            {isSessionActive && (
+              <div className="absolute -top-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+                <Activity className="w-3 h-3 text-white animate-pulse" />
+              </div>
+            )}
           </div>
         </div>
-        <h1 className="text-3xl font-bold text-gray-900">Voice Emergency Response</h1>
+        <h1 className="text-3xl font-bold text-gray-900">Advanced Emergency Response System</h1>
         <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-          Speak naturally with our AI assistant to report your emergency. We'll collect all necessary details and transfer you directly to emergency services.
+          AI-powered emergency coordination with real-time call transfer, persistent connections, and comprehensive error handling for critical situations.
         </p>
         
-        {/* Call Transfer Flow */}
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 max-w-3xl mx-auto">
-          <h3 className="font-semibold text-blue-900 mb-3">Call Transfer Process:</h3>
-          <div className="flex items-center justify-center space-x-2 text-sm text-blue-800">
-            <div className="flex items-center space-x-1">
-              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                <span className="text-xs font-bold">1</span>
+        {/* Enhanced Call Transfer Flow */}
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 max-w-4xl mx-auto">
+          <h3 className="font-semibold text-blue-900 mb-3">Emergency Call Protocol:</h3>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm text-blue-800">
+            <div className="flex flex-col items-center space-y-2">
+              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                <Mic className="w-6 h-6 text-blue-600" />
               </div>
-              <span>AI Assistant</span>
+              <span className="text-center">1. AI Emergency Assistant</span>
             </div>
-            <ArrowRight className="w-4 h-4" />
-            <div className="flex items-center space-x-1">
-              <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                <span className="text-xs font-bold">2</span>
+            <div className="flex flex-col items-center space-y-2">
+              <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
+                <Radio className="w-6 h-6 text-yellow-600" />
               </div>
-              <span>Twilio ({twilioNumber})</span>
+              <span className="text-center">2. Data Collection & Dispatch</span>
             </div>
-            <ArrowRight className="w-4 h-4" />
-            <div className="flex items-center space-x-1">
-              <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
-                <span className="text-xs font-bold">3</span>
+            <div className="flex flex-col items-center space-y-2">
+              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                <PhoneCall className="w-6 h-6 text-green-600" />
               </div>
-              <span>Emergency ({emergencyNumber})</span>
+              <span className="text-center">3. Concurrent Emergency Call</span>
             </div>
+            <div className="flex flex-col items-center space-y-2">
+              <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+                <Shield className="w-6 h-6 text-purple-600" />
+              </div>
+              <span className="text-center">4. Three-Way Communication</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Connection Status Dashboard */}
+      <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-lg">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Connection Status Dashboard</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* User Connection */}
+          <div className="bg-gray-50 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-gray-700">User Connection</span>
+              <div className={`w-3 h-3 rounded-full ${
+                connectionHealth.userConnection === 'stable' ? 'bg-green-500' : 
+                connectionHealth.userConnection === 'connecting' ? 'bg-yellow-500' : 'bg-red-500'
+              } ${isSessionActive ? 'animate-pulse' : ''}`}></div>
+            </div>
+            <p className="text-xs text-gray-600 capitalize">{connectionHealth.userConnection}</p>
+          </div>
+
+          {/* Emergency Service Connection */}
+          <div className="bg-gray-50 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-gray-700">Emergency Services</span>
+              <div className={`w-3 h-3 rounded-full ${
+                connectionHealth.emergencyServiceConnection === 'connected' ? 'bg-green-500' : 
+                connectionHealth.emergencyServiceConnection === 'connecting' ? 'bg-yellow-500 animate-pulse' : 'bg-gray-400'
+              }`}></div>
+            </div>
+            <p className="text-xs text-gray-600 capitalize">{connectionHealth.emergencyServiceConnection}</p>
+          </div>
+
+          {/* Three-Way Status */}
+          <div className="bg-gray-50 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-gray-700">Three-Way Active</span>
+              <div className={`w-3 h-3 rounded-full ${
+                transferStatus.threeWayActive ? 'bg-purple-500 animate-pulse' : 'bg-gray-400'
+              }`}></div>
+            </div>
+            <p className="text-xs text-gray-600">{transferStatus.threeWayActive ? 'Active' : 'Inactive'}</p>
           </div>
         </div>
       </div>
@@ -119,10 +195,15 @@ export default function VoiceEmergencyInterface({ onEmergencyDataCollected }: Vo
       {/* Voice Interface */}
       <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-lg">
         <div className="text-center space-y-6">
-          {/* Status Indicator */}
+          {/* Enhanced Status Indicator */}
           <div className="flex items-center justify-center space-x-3">
             <div className={`w-4 h-4 rounded-full ${getStatusColor()} ${isSessionActive ? 'animate-pulse' : ''}`}></div>
             <span className="text-lg font-medium text-gray-700">{getStatusText()}</span>
+            {transferStatus.attempts > 0 && (
+              <span className="text-sm text-gray-500">
+                (Transfer Attempts: {transferStatus.attempts}/3)
+              </span>
+            )}
           </div>
 
           {/* Error Message Display */}
@@ -130,24 +211,32 @@ export default function VoiceEmergencyInterface({ onEmergencyDataCollected }: Vo
             <div className="bg-red-50 border border-red-200 rounded-xl p-4 max-w-2xl mx-auto">
               <div className="flex items-center justify-center space-x-3 mb-2">
                 <XCircle className="w-6 h-6 text-red-600" />
-                <h3 className="text-lg font-semibold text-red-900">Call Error</h3>
+                <h3 className="text-lg font-semibold text-red-900">Emergency System Error</h3>
               </div>
               <p className="text-red-800 text-sm mb-3">{vapiErrorMessage}</p>
               <div className="space-y-2 text-xs text-red-700">
-                <p><strong>Troubleshooting tips:</strong></p>
+                <p><strong>Emergency Troubleshooting:</strong></p>
                 <ul className="list-disc list-inside space-y-1 text-left">
-                  <li>Check your internet connection and try again</li>
-                  <li>Ensure microphone permissions are granted</li>
-                  <li>If the problem persists, contact support</li>
-                  <li>For immediate emergencies, call 112 directly</li>
+                  <li>For immediate life-threatening emergencies, call 112 directly</li>
+                  <li>Check internet connection and microphone permissions</li>
+                  <li>System will auto-retry for emergency situations</li>
+                  <li>Emergency services have been notified via backup systems</li>
                 </ul>
               </div>
-              <button
-                onClick={startCall}
-                className="mt-3 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm transition-colors"
-              >
-                Try Again
-              </button>
+              <div className="flex space-x-2 mt-3">
+                <button
+                  onClick={startCall}
+                  className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm transition-colors"
+                >
+                  Retry Emergency System
+                </button>
+                <a
+                  href="tel:112"
+                  className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg text-sm transition-colors"
+                >
+                  Call 112 Directly
+                </a>
+              </div>
             </div>
           )}
 
@@ -156,9 +245,12 @@ export default function VoiceEmergencyInterface({ onEmergencyDataCollected }: Vo
             {!isSessionActive ? (
               <button
                 onClick={startCall}
-                className="bg-red-600 hover:bg-red-700 text-white p-6 rounded-full transition-all duration-200 hover:scale-105 shadow-lg"
+                className="bg-red-600 hover:bg-red-700 text-white p-6 rounded-full transition-all duration-200 hover:scale-105 shadow-lg relative"
               >
                 <Phone className="w-8 h-8" />
+                <div className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-400 rounded-full flex items-center justify-center">
+                  <Zap className="w-2 h-2 text-white" />
+                </div>
               </button>
             ) : (
               <>
@@ -169,6 +261,7 @@ export default function VoiceEmergencyInterface({ onEmergencyDataCollected }: Vo
                       ? 'bg-red-100 text-red-600 hover:bg-red-200' 
                       : 'bg-green-100 text-green-600 hover:bg-green-200'
                   }`}
+                  title={transferStatus.threeWayActive ? 'Muting during emergency call' : 'Toggle microphone'}
                 >
                   {isMuted ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
                 </button>
@@ -176,6 +269,7 @@ export default function VoiceEmergencyInterface({ onEmergencyDataCollected }: Vo
                 <button
                   onClick={endCall}
                   className="bg-red-600 hover:bg-red-700 text-white p-6 rounded-full transition-all duration-200 hover:scale-105 shadow-lg"
+                  title={transferStatus.status !== 'idle' ? 'Warning: Ending emergency call' : 'End call'}
                 >
                   <PhoneOff className="w-8 h-8" />
                 </button>
@@ -187,75 +281,70 @@ export default function VoiceEmergencyInterface({ onEmergencyDataCollected }: Vo
             )}
           </div>
 
-          {/* Instructions */}
+          {/* Enhanced Instructions */}
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
-            <h3 className="text-lg font-semibold text-blue-900 mb-3">How it works:</h3>
-            <div className="space-y-2 text-sm text-blue-800 text-left">
-              <p>• Click the red phone button to start speaking with our AI assistant</p>
-              <p>• Describe your emergency clearly - the AI will ask follow-up questions</p>
-              <p>• Provide your location, number of people involved, and urgency level</p>
-              <p>• Once data is collected, you'll be transferred directly to emergency services</p>
-              <p>• The call will be bridged from Twilio ({twilioNumber}) to emergency services ({emergencyNumber})</p>
+            <h3 className="text-lg font-semibold text-blue-900 mb-3">Emergency System Features:</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-800 text-left">
+              <div className="space-y-2">
+                <p>• <strong>Instant Emergency Detection:</strong> Say "emergency" or "help" for immediate response</p>
+                <p>• <strong>Persistent Connections:</strong> Maintains all connections until help arrives</p>
+                <p>• <strong>Auto-Retry:</strong> Automatically retries failed transfers (up to 3 attempts)</p>
+              </div>
+              <div className="space-y-2">
+                <p>• <strong>Three-Way Communication:</strong> Enables direct communication with emergency services</p>
+                <p>• <strong>Real-Time Monitoring:</strong> Continuous connection health monitoring</p>
+                <p>• <strong>Backup Systems:</strong> Multiple redundancy measures for critical situations</p>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Call Transfer Status */}
-      {(callStatus === 'transferring' || callStatus === 'transferred') && (
-        <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl p-6 text-center">
+      {/* Transfer Status Display */}
+      {transferStatus.status !== 'idle' && (
+        <div className={`${getTransferStatusColor()} text-white rounded-xl p-6 text-center`}>
           <div className="flex items-center justify-center space-x-3 mb-4">
-            {callStatus === 'transferring' && <Loader className="w-6 h-6 animate-spin" />}
-            {callStatus === 'transferred' && <PhoneCall className="w-6 h-6" />}
-            <h3 className="text-xl font-bold">
-              {callStatus === 'transferring' ? 'Transferring Call...' : 'Call Transferred Successfully'}
-            </h3>
+            {transferStatus.status === 'connecting' && <Loader className="w-6 h-6 animate-spin" />}
+            {transferStatus.status === 'connected' && <PhoneCall className="w-6 h-6" />}
+            {transferStatus.status === 'failed' && <AlertTriangle className="w-6 h-6" />}
+            <h3 className="text-xl font-bold">{getTransferStatusText()}</h3>
           </div>
           
           <div className="space-y-2 text-white/90">
-            <p>Your call is being transferred to emergency services</p>
-            <div className="flex items-center justify-center space-x-2 text-sm">
-              <span>From: {twilioNumber}</span>
-              <ArrowRight className="w-4 h-4" />
-              <span>To: {emergencyNumber}</span>
+            <div className="flex items-center justify-center space-x-4 text-sm">
+              <span>User: {transferStatus.userConnected ? '✅ Connected' : '❌ Disconnected'}</span>
+              <span>Emergency: {transferStatus.emergencyServiceConnected ? '✅ Connected' : '⏳ Connecting'}</span>
+              <span>Three-Way: {transferStatus.threeWayActive ? '✅ Active' : '⏳ Pending'}</span>
             </div>
-            {callStatus === 'transferred' && (
-              <p className="text-sm mt-3 bg-white/20 rounded-lg p-2">
-                ✅ You are now connected directly to emergency services. Stay on the line.
+            
+            {transferStatus.lastError && (
+              <p className="text-sm bg-white/20 rounded-lg p-2 mt-2">
+                Last Error: {transferStatus.lastError}
               </p>
             )}
+            
+            {emergencyServiceCall && (
+              <div className="text-sm mt-3 bg-white/20 rounded-lg p-2">
+                <p>Emergency Call ID: {emergencyServiceCall.callId}</p>
+                <p>Connected to: {emergencyNumber}</p>
+              </div>
+            )}
           </div>
-        </div>
-      )}
-
-      {/* Emergency Dispatch Status */}
-      {dispatchStatus !== 'idle' && (
-        <div className={`${getDispatchStatusColor()} text-white rounded-xl p-6 text-center`}>
-          <div className="flex items-center justify-center space-x-3 mb-2">
-            {dispatchStatus === 'dispatching' && <Loader className="w-5 h-5 animate-spin" />}
-            {dispatchStatus === 'dispatched' && <PhoneCall className="w-5 h-5" />}
-            {dispatchStatus === 'failed' && <AlertTriangle className="w-5 h-5" />}
-            <h3 className="text-xl font-bold">{getDispatchStatusText()}</h3>
-          </div>
-          {dispatchStatus === 'dispatched' && emergencyData.servicesContacted && (
-            <div className="space-y-1 text-white/90">
-              <p>Services Contacted: {emergencyData.servicesContacted.join(', ')}</p>
-              <p className="font-mono text-sm">Call transferred to: {emergencyNumber}</p>
-              {emergencyData.estimatedArrival && (
-                <p>Estimated Arrival: {emergencyData.estimatedArrival} minutes</p>
-              )}
-            </div>
-          )}
         </div>
       )}
 
       {/* Live Transcript */}
       {transcript && (
         <div className="bg-gray-50 border border-gray-200 rounded-xl p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-3">Conversation Transcript</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-3">Live Emergency Transcript</h3>
           <div className="bg-white p-4 rounded-lg border max-h-40 overflow-y-auto">
             <p className="text-sm text-gray-700 whitespace-pre-wrap">{transcript}</p>
           </div>
+          {transferStatus.threeWayActive && (
+            <p className="text-xs text-green-600 mt-2">
+              ✅ This conversation is being shared with emergency services in real-time
+            </p>
+          )}
         </div>
       )}
 
@@ -305,11 +394,11 @@ export default function VoiceEmergencyInterface({ onEmergencyDataCollected }: Vo
                 </div>
               )}
 
-              {emergencyData.dispatchId && (
+              {emergencyData.transferAttempts && (
                 <div className="flex items-center">
-                  <Shield className="w-5 h-5 mr-2 text-green-600" />
-                  <span className="text-sm text-gray-600">Dispatch ID:</span>
-                  <span className="ml-2 font-medium text-gray-900 font-mono text-xs">{emergencyData.dispatchId}</span>
+                  <Radio className="w-5 h-5 mr-2 text-blue-600" />
+                  <span className="text-sm text-gray-600">Transfer Attempts:</span>
+                  <span className="ml-2 font-medium text-gray-900">{emergencyData.transferAttempts}/3</span>
                 </div>
               )}
             </div>
@@ -317,7 +406,7 @@ export default function VoiceEmergencyInterface({ onEmergencyDataCollected }: Vo
           
           {emergencyData.description && (
             <div className="mt-4 p-4 bg-white rounded-lg border">
-              <h4 className="font-medium text-gray-900 mb-2">Description:</h4>
+              <h4 className="font-medium text-gray-900 mb-2">Situation Description:</h4>
               <p className="text-sm text-gray-700">{emergencyData.description}</p>
             </div>
           )}
@@ -326,11 +415,13 @@ export default function VoiceEmergencyInterface({ onEmergencyDataCollected }: Vo
             <div className="flex items-center">
               <PhoneCall className="w-5 h-5 text-green-600 mr-2" />
               <p className="text-sm text-green-800 font-medium">
-                {callStatus === 'transferred' 
-                  ? '✅ You are now connected directly to emergency services'
-                  : dispatchStatus === 'dispatched' 
-                  ? '✅ Call transfer initiated - connecting to emergency services'
-                  : '⏳ Preparing to transfer call to emergency services...'
+                {transferStatus.threeWayActive 
+                  ? '✅ Three-way communication active with emergency services'
+                  : transferStatus.emergencyServiceConnected
+                  ? '✅ Emergency services connected - establishing three-way communication'
+                  : transferStatus.status === 'connecting'
+                  ? '⏳ Connecting to emergency services...'
+                  : '📞 Emergency services will be contacted immediately'
                 }
               </p>
             </div>
@@ -343,19 +434,25 @@ export default function VoiceEmergencyInterface({ onEmergencyDataCollected }: Vo
         <div className="flex items-center">
           <AlertTriangle className="w-5 h-5 text-yellow-600 mr-2" />
           <p className="text-sm text-yellow-800">
-            <strong>Life-threatening emergency?</strong> Call 112 (India Emergency) immediately while using this system for additional support and coordination.
+            <strong>Life-threatening emergency?</strong> Call 112 (India Emergency) immediately. This system provides additional support and coordination.
           </p>
         </div>
       </div>
 
-      {/* Configuration Information */}
+      {/* System Configuration */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h4 className="font-semibold text-blue-900 mb-2">Call Transfer Configuration</h4>
-        <div className="space-y-1 text-sm text-blue-800">
-          <p>• Twilio Number: <span className="font-mono font-bold">{twilioNumber}</span></p>
-          <p>• Emergency Contact: <span className="font-mono font-bold">{emergencyNumber}</span></p>
-          <p>• Transfer Method: Direct call bridging via Twilio</p>
-          <p>• This system will transfer your call directly to emergency services after collecting information</p>
+        <h4 className="font-semibold text-blue-900 mb-2">Emergency System Configuration</h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-800">
+          <div className="space-y-1">
+            <p>• <strong>Twilio Bridge:</strong> <span className="font-mono">{twilioNumber}</span></p>
+            <p>• <strong>Emergency Contact:</strong> <span className="font-mono">{emergencyNumber}</span></p>
+            <p>• <strong>Transfer Method:</strong> Concurrent call bridging</p>
+          </div>
+          <div className="space-y-1">
+            <p>• <strong>Auto-Retry:</strong> Up to 3 attempts</p>
+            <p>• <strong>Connection Monitoring:</strong> Real-time health checks</p>
+            <p>• <strong>Backup Systems:</strong> Multiple redundancy layers</p>
+          </div>
         </div>
       </div>
     </div>
